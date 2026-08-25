@@ -42,7 +42,7 @@
             android:text="⚙️ 로그" />
     </com.google.android.material.tabs.TabLayout>
 
-    <!-- 공통 상단 상태 바 (Domain ID + 배터리 상태 + 노드 시작 버튼) -->
+    <!-- 공통 상단 상태 바 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -67,7 +67,6 @@
             android:inputType="number"
             android:textSize="12sp" />
 
-        <!-- 실시간 배터리 상태 배지 -->
         <TextView
             android:id="@+id/tvBatteryBadge"
             android:layout_width="wrap_content"
@@ -75,8 +74,8 @@
             android:text="🔋 --% (--V)"
             android:textColor="#00E676"
             android:textSize="11sp"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
             android:textStyle="bold" />
 
         <TextView
@@ -114,7 +113,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- 최대 속도 조절 슬라이더 카드 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -144,7 +142,6 @@
                         android:thumbTint="#00E676" />
                 </LinearLayout>
 
-                <!-- 카메라 & 대형 라이다 뷰 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="240dp"
@@ -194,7 +191,6 @@
                     </FrameLayout>
                 </LinearLayout>
 
-                <!-- 실시간 속도 모니터링 -->
                 <TextView
                     android:id="@+id/tvVelocity"
                     android:layout_width="match_parent"
@@ -205,7 +201,6 @@
                     android:layout_marginTop="4dp"
                     android:textSize="12sp" />
 
-                <!-- 조이스틱 -->
                 <com.example.ros2_controller.JoystickView
                     android:id="@+id/joystickView"
                     android:layout_width="180dp"
@@ -213,7 +208,6 @@
                     android:layout_gravity="center_horizontal"
                     android:layout_marginTop="2dp" />
 
-                <!-- 긴급 정지 -->
                 <Button
                     android:id="@+id/btnEmergencyStop"
                     android:layout_width="match_parent"
@@ -224,16 +218,71 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- ==================== TAB 2: 2D SLAM 맵 & Nav2 Goal 전송 ==================== -->
+        <!-- ==================== TAB 2: 2D SLAM 맵 & 2D Pose / Nav2 제어 ==================== -->
         <LinearLayout
             android:id="@+id/tabMapNav"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:padding="8dp"
+            android:padding="6dp"
             android:visibility="gone">
 
-            <!-- 맵 정보 및 전송 컨트롤 바 -->
+            <!-- 1. 모드 선택 바 (단일 목표 / 경유지 순찰 / 2D 위치추정 / 취소) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+
+                <Button
+                    android:id="@+id/btnModeSingleGoal"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:text="목적지"
+                    android:textSize="10sp"
+                    android:backgroundTint="#00E676"
+                    android:textColor="#000"
+                    android:layout_marginEnd="1dp" />
+
+                <Button
+                    android:id="@+id/btnModeWaypoints"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:text="경유지"
+                    android:textSize="10sp"
+                    android:backgroundTint="#424242"
+                    android:textColor="#FFF"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginEnd="1dp" />
+
+                <Button
+                    android:id="@+id/btnModeInitialPose"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:text="위치추정"
+                    android:textSize="10sp"
+                    android:backgroundTint="#424242"
+                    android:textColor="#FFF"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginEnd="1dp" />
+
+                <Button
+                    android:id="@+id/btnCancelNav"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1.2"
+                    android:text="취소"
+                    android:textSize="10sp"
+                    android:backgroundTint="#D32F2F"
+                    android:textColor="#FFF"
+                    android:layout_marginStart="1dp" />
+            </LinearLayout>
+
+            <!-- 2. 상태 정보 & 전송/초기화 바 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -248,22 +297,30 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="지도 터치 시 목표 지점 설정"
+                    android:text="단일 목표 모드: 지도 터치&amp;드래그로 목표 설정"
                     android:textColor="#00E676"
                     android:textSize="11sp" />
 
                 <Button
+                    android:id="@+id/btnClearMapWaypoints"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="초기화"
+                    android:textSize="10sp"
+                    android:backgroundTint="#555"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
                     android:id="@+id/btnSendNavGoal"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:text="Nav2 Goal 전송"
-                    android:textSize="11sp"
+                    android:layout_height="32dp"
+                    android:text="Goal 전송"
+                    android:textSize="10sp"
                     android:backgroundTint="#00E676"
                     android:textColor="#000"
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- 2D Occupancy Grid Map View -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
@@ -313,7 +370,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:backgroundTint="#00E676" />
+                    android:backgroundTint="#00E676"
+                    android:theme="@style/ThemeOverlay.AppCompat.Dark" />
             </LinearLayout>
 
             <LinearLayout
@@ -397,7 +455,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:backgroundTint="#00E676" />
+                    android:backgroundTint="#00E676"
+                    android:theme="@style/ThemeOverlay.AppCompat.Dark" />
 
                 <Button
                     android:id="@+id/btnApplySubTopic"
