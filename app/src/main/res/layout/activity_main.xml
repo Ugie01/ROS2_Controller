@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#121212"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- 1. ROS_DOMAIN_ID 동적 변경 바 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Domain ID: "
+                android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/etDomainId"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:inputType="number"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/btnNodeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DDS 노드 시작"
+                android:backgroundTint="#4CAF50" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="상태: 노드 중지됨"
+            android:textColor="#FF5252"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- 2. Compressed Image 뷰어 & LaserScan 뷰어 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#1E1E1E"
+                android:layout_marginEnd="4dp">
+
+                <ImageView
+                    android:id="@+id/ivCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Compressed Image"
+                    android:textColor="#AAA"
+                    android:textSize="10sp"
+                    android:padding="4dp" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#1E1E1E"
+                android:layout_marginStart="4dp">
+
+                <com.example.ros2_controller.LaserScanView
+                    android:id="@+id/laserScanView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LaserScan (2D)"
+                    android:textColor="#AAA"
+                    android:textSize="10sp"
+                    android:padding="4dp" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- 3. 속도 모니터링 텍스트 -->
+        <TextView
+            android:id="@+id/tvVelocity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Linear: 0.00 m/s | Angular: 0.00 rad/s"
+            android:textColor="#00E676"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp" />
+
+        <!-- 4. 가상 조이스틱 (cmd_vel 제어) -->
+        <com.example.ros2_controller.JoystickView
+            android:id="@+id/joystickView"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp" />
+
+        <!-- 5. 비상 정지 버튼 -->
+        <Button
+            android:id="@+id/btnEmergencyStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EMERGENCY STOP (cmd_vel: 0)"
+            android:backgroundTint="#D32F2F"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>
