@@ -1,137 +1,582 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
+    android:orientation="vertical"
     android:background="#121212"
     tools:context=".MainActivity">
 
+    <!-- 상단 탭 레이아웃 (5개 탭) -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1E1E1E"
+        app:tabTextColor="#888888"
+        app:tabSelectedTextColor="#00E676"
+        app:tabIndicatorColor="#00E676"
+        app:tabMode="scrollable">
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🕹️ 주행/센서" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🗺️ SLAM 맵" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📡 토픽" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡ 서비스" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 로그" />
+    </com.google.android.material.tabs.TabLayout>
+
+    <!-- 공통 상단 상태 바 (Domain ID + 배터리 상태 + 노드 시작 버튼) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#181818"
+        android:gravity="center_vertical">
 
-        <!-- 1. ROS_DOMAIN_ID 동적 변경 바 -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:text="Domain: "
+            android:textColor="#FFF"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etDomainId"
+            android:layout_width="45dp"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textColor="#FFF"
+            android:inputType="number"
+            android:textSize="12sp" />
+
+        <!-- 실시간 배터리 상태 배지 -->
+        <TextView
+            android:id="@+id/tvBatteryBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔋 --% (--V)"
+            android:textColor="#00E676"
+            android:textSize="11sp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="● 중지됨"
+            android:textColor="#FF5252"
+            android:textSize="11sp"
+            android:gravity="center" />
+
+        <Button
+            android:id="@+id/btnNodeToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="노드 시작"
+            android:textSize="11sp"
+            android:backgroundTint="#4CAF50" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- ==================== TAB 1: 주행 & 센서 ==================== -->
+        <ScrollView
+            android:id="@+id/tabDriveSensors"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- 최대 속도 조절 슬라이더 카드 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="#1E1E1E"
+                    android:padding="8dp"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <TextView
+                        android:id="@+id/tvMaxSpeedLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="최대속도: 0.50 m/s"
+                        android:textColor="#00E676"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <SeekBar
+                        android:id="@+id/sbMaxSpeed"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="200"
+                        android:progress="50"
+                        android:progressTint="#00E676"
+                        android:thumbTint="#00E676" />
+                </LinearLayout>
+
+                <!-- 카메라 & 대형 라이다 뷰 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="240dp"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="#1E1E1E"
+                        android:layout_marginEnd="4dp">
+
+                        <ImageView
+                            android:id="@+id/ivCamera"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="fitCenter" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="/image_raw/compressed"
+                            android:textColor="#AAA"
+                            android:textSize="9sp"
+                            android:padding="4dp" />
+                    </FrameLayout>
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1.2"
+                        android:background="#1E1E1E"
+                        android:layout_marginStart="4dp">
+
+                        <com.example.ros2_controller.LaserScanView
+                            android:id="@+id/laserScanView"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="/scan (LiDAR 6m)"
+                            android:textColor="#AAA"
+                            android:textSize="9sp"
+                            android:padding="4dp" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <!-- 실시간 속도 모니터링 -->
+                <TextView
+                    android:id="@+id/tvVelocity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Linear: 0.00 m/s | Angular: 0.00 rad/s (정지)"
+                    android:textColor="#00E676"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp"
+                    android:textSize="12sp" />
+
+                <!-- 조이스틱 -->
+                <com.example.ros2_controller.JoystickView
+                    android:id="@+id/joystickView"
+                    android:layout_width="180dp"
+                    android:layout_height="180dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="2dp" />
+
+                <!-- 긴급 정지 -->
+                <Button
+                    android:id="@+id/btnEmergencyStop"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="EMERGENCY STOP (cmd_vel: 0)"
+                    android:backgroundTint="#D32F2F"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- ==================== TAB 2: 2D SLAM 맵 & Nav2 Goal 전송 ==================== -->
+        <LinearLayout
+            android:id="@+id/tabMapNav"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <!-- 맵 정보 및 전송 컨트롤 바 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#1E1E1E"
+                android:padding="6dp"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:id="@+id/tvSelectedGoalPos"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="지도 터치 시 목표 지점 설정"
+                    android:textColor="#00E676"
+                    android:textSize="11sp" />
+
+                <Button
+                    android:id="@+id/btnSendNavGoal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Nav2 Goal 전송"
+                    android:textSize="11sp"
+                    android:backgroundTint="#00E676"
+                    android:textColor="#000"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- 2D Occupancy Grid Map View -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#181818">
+
+                <com.example.ros2_controller.MapView
+                    android:id="@+id/mapView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- ==================== TAB 3: 토픽 송수신 ==================== -->
+        <LinearLayout
+            android:id="@+id/tabTopics"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:visibility="gone">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Domain ID: "
-                android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:text="📤 토픽 퍼블리시 (Publish)"
+                android:textColor="#00E676"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-            <EditText
-                android:id="@+id/etDomainId"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="0"
-                android:textColor="#FFFFFF"
-                android:inputType="number"
-                android:textSize="14sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp">
 
-            <Button
-                android:id="@+id/btnNodeToggle"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="목록: "
+                    android:textColor="#AAA"
+                    android:textSize="11sp" />
+
+                <Spinner
+                    android:id="@+id/spnPubTopics"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#00E676" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="2dp">
+
+                <EditText
+                    android:id="@+id/etCustomTopicName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.2"
+                    android:hint="토픽명 입력"
+                    android:text="/chatter"
+                    android:textColor="#FFF"
+                    android:textColorHint="#777"
+                    android:textSize="12sp" />
+
+                <EditText
+                    android:id="@+id/etCustomTopicMsg"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1.8"
+                    android:hint="보낼 문자열"
+                    android:text="Hello from Android!"
+                    android:textColor="#FFF"
+                    android:textColorHint="#777"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnPublishCustomTopic"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="전송"
+                    android:textSize="11sp"
+                    android:backgroundTint="#2196F3" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="10dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="📥 수신 모니터링 (최근 20개)"
+                    android:textColor="#00E676"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnClearTopicLog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="지우기"
+                    android:textSize="10sp"
+                    android:backgroundTint="#424242" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="수신 토픽: "
+                    android:textColor="#AAA"
+                    android:textSize="11sp" />
+
+                <Spinner
+                    android:id="@+id/spnSubTopics"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#00E676" />
+
+                <Button
+                    android:id="@+id/btnApplySubTopic"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="적용"
+                    android:textSize="10sp"
+                    android:backgroundTint="#FF9800" />
+            </LinearLayout>
+
+            <ScrollView
+                android:id="@+id/svTopicEcho"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#181818"
+                android:padding="6dp"
+                android:layout_marginTop="4dp">
+
+                <TextView
+                    android:id="@+id/tvTopicEcho"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#81C784"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:text="[토픽 수신 대기 중...]\n" />
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- ==================== TAB 4: 서비스 & 액션 ==================== -->
+        <LinearLayout
+            android:id="@+id/tabServices"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="DDS 노드 시작"
-                android:backgroundTint="#4CAF50" />
+                android:text="서비스 호출 (Service Call)"
+                android:textColor="#00E676"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <EditText
+                    android:id="@+id/etServiceName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="서비스 이름 (예: /reset)"
+                    android:text="/reset"
+                    android:textColor="#FFF"
+                    android:textColorHint="#777"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnCallService"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="서비스 호출"
+                    android:textSize="11sp"
+                    android:backgroundTint="#FF9800" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="퀵 커맨드 (Quick Commands)"
+                android:textColor="#AAA"
+                android:textSize="11sp"
+                android:layout_marginTop="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <Button
+                    android:id="@+id/btnQuickResetOdom"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Odom Reset"
+                    android:textSize="11sp"
+                    android:backgroundTint="#424242"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnQuickClearCostmap"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Clear Costmap"
+                    android:textSize="11sp"
+                    android:backgroundTint="#424242"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#1E1E1E"
+                android:layout_marginTop="8dp"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/tvServiceResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFF"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:text="서비스 응답 결과가 여기에 표시됩니다." />
+            </ScrollView>
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="상태: 노드 중지됨"
-            android:textColor="#FF5252"
-            android:textSize="12sp"
-            android:layout_marginBottom="8dp" />
-
-        <!-- 2. Compressed Image 뷰어 & LaserScan 뷰어 -->
+        <!-- ==================== TAB 5: DDS 콘솔 로그 ==================== -->
         <LinearLayout
+            android:id="@+id/tabLogs"
             android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
 
-            <FrameLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="#1E1E1E"
-                android:layout_marginEnd="4dp">
-
-                <ImageView
-                    android:id="@+id/ivCamera"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="fitCenter" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="DDS 실시간 통신 콘솔"
+                    android:textColor="#00E676"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnClearLog"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Compressed Image"
-                    android:textColor="#AAA"
-                    android:textSize="10sp"
-                    android:padding="4dp" />
-            </FrameLayout>
+                    android:text="로그 지우기"
+                    android:backgroundTint="#555"
+                    android:textSize="11sp" />
+            </LinearLayout>
 
-            <FrameLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
+            <ScrollView
+                android:id="@+id/svLogScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="#1E1E1E"
-                android:layout_marginStart="4dp">
-
-                <com.example.ros2_controller.LaserScanView
-                    android:id="@+id/laserScanView"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
+                android:background="#0A0A0A"
+                android:layout_marginTop="6dp"
+                android:padding="6dp">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvLogConsole"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="LaserScan (2D)"
-                    android:textColor="#AAA"
-                    android:textSize="10sp"
-                    android:padding="4dp" />
-            </FrameLayout>
+                    android:textColor="#A5D6A7"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:text="[DDS Console Ready]\n" />
+            </ScrollView>
         </LinearLayout>
 
-        <!-- 3. 속도 모니터링 텍스트 -->
-        <TextView
-            android:id="@+id/tvVelocity"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Linear: 0.00 m/s | Angular: 0.00 rad/s"
-            android:textColor="#00E676"
-            android:gravity="center"
-            android:layout_marginTop="8dp"
-            android:textSize="14sp" />
-
-        <!-- 4. 가상 조이스틱 (cmd_vel 제어) -->
-        <com.example.ros2_controller.JoystickView
-            android:id="@+id/joystickView"
-            android:layout_width="220dp"
-            android:layout_height="220dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp" />
-
-        <!-- 5. 비상 정지 버튼 -->
-        <Button
-            android:id="@+id/btnEmergencyStop"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="EMERGENCY STOP (cmd_vel: 0)"
-            android:backgroundTint="#D32F2F"
-            android:layout_marginTop="8dp" />
-
-    </LinearLayout>
-</ScrollView>
+    </FrameLayout>
+</LinearLayout>
