@@ -5,12 +5,9 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
 
 public class LaserScanView extends View {
-    private static final String TAG = "ROS2_DEBUG_LaserScan";
-
     private Paint gridPaint, pointPaint;
     private float[] ranges;
     private float angleMin = -3.14159f;
@@ -34,8 +31,13 @@ public class LaserScanView extends View {
         pointPaint.setStrokeWidth(4f);
     }
 
-    public synchronized void updateScan(float[] ranges, float angleMin, float angleIncrement) {
-        this.ranges = ranges;
+    public synchronized void updateScan(float[] newRanges, float angleMin, float angleIncrement) {
+        if (newRanges != null) {
+            if (this.ranges == null || this.ranges.length != newRanges.length) {
+                this.ranges = new float[newRanges.length];
+            }
+            System.arraycopy(newRanges, 0, this.ranges, 0, newRanges.length);
+        }
         this.angleMin = angleMin;
         this.angleIncrement = angleIncrement;
         postInvalidate();
@@ -54,21 +56,24 @@ public class LaserScanView extends View {
         canvas.drawLine(cx, 0, cx, getHeight(), gridPaint);
         canvas.drawLine(0, cy, getWidth(), cy, gridPaint);
 
-        if (ranges == null || ranges.length == 0) return;
+        float[] localRanges;
+        float localAngleMin, localAngleInc;
+        synchronized (this) {
+            if (ranges == null || ranges.length == 0) return;
+            localRanges = ranges.clone();
+            localAngleMin = angleMin;
+            localAngleInc = angleIncrement;
+        }
 
         float scale = radius / maxRange;
-        int drawnPoints = 0;
-        synchronized (this) {
-            float currentAngle = angleMin;
-            for (float r : ranges) {
-                if (!Float.isInfinite(r) && !Float.isNaN(r) && r > 0.05f && r <= maxRange) {
-                    float px = cx - (float) (r * Math.sin(currentAngle)) * scale;
-                    float py = cy - (float) (r * Math.cos(currentAngle)) * scale;
-                    canvas.drawPoint(px, py, pointPaint);
-                    drawnPoints++;
-                }
-                currentAngle += angleIncrement;
+        float currentAngle = localAngleMin;
+        for (float r : localRanges) {
+            if (!Float.isInfinite(r) && !Float.isNaN(r) && r > 0.05f && r <= maxRange) {
+                float px = cx - (float) (r * Math.sin(currentAngle)) * scale;
+                float py = cy - (float) (r * Math.cos(currentAngle)) * scale;
+                canvas.drawPoint(px, py, pointPaint);
             }
+            currentAngle += localAngleInc;
         }
     }
 }

@@ -129,9 +129,6 @@ public class MapView extends View {
         clearAllMarkers();
     }
 
-    /**
-     * 모든 목적지/경유지/초기위치 마커 삭제
-     */
     public void clearAllMarkers() {
         hasGoal = false;
         hasInitPose = false;
@@ -141,9 +138,6 @@ public class MapView extends View {
         postInvalidate();
     }
 
-    /**
-     * 경유지 도달 시 맨 앞 포인트 제거 (순차적 소거)
-     */
     public synchronized void removeFirstWaypoint() {
         if (!waypointList.isEmpty()) {
             waypointList.remove(0);
@@ -297,7 +291,6 @@ public class MapView extends View {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 if (currentMode == MODE_WAYPOINTS) {
-                    // 경유지 모드: 터치할 때마다 순차적으로 웨이포인트 추가
                     float gridY = mapHeight - 1 - touchY;
                     float wx = originX + touchX * resolution;
                     float wy = originY + gridY * resolution;
@@ -307,7 +300,6 @@ public class MapView extends View {
                     }
                     invalidate();
                 } else if (currentMode == MODE_INITIAL_POSE) {
-                    // 2D Pose Estimate 모드
                     initPosePixelX = touchX;
                     initPosePixelY = touchY;
                     float gridY = mapHeight - 1 - touchY;
@@ -318,7 +310,6 @@ public class MapView extends View {
                     isDraggingHeading = true;
                     invalidate();
                 } else {
-                    // 단일 Goal 모드
                     goalPixelX = touchX;
                     goalPixelY = touchY;
                     float gridY = mapHeight - 1 - touchY;

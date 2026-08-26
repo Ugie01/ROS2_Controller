@@ -6,7 +6,12 @@ import android.graphics.BitmapFactory;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import geometry_msgs.PoseStamped;
 import geometry_msgs.PoseWithCovarianceStamped;
@@ -30,22 +35,25 @@ public class ROS2NativeManager {
         void onCompressedImageReceived(Bitmap bitmap);
         void onLaserScanReceived(float[] ranges, float angleMin, float angleInc);
         void onMapReceived(byte[] data, int width, int height, float resolution, float originX, float originY);
-        void onRobotPoseReceived(float worldX, float worldY, float yaw);
+        void onRobotPoseReceived(float worldX, float worldY, float yaw, boolean isAmcl);
         void onBatteryStateReceived(float percentage, float voltage, boolean isCharging);
         void onCustomTopicReceived(String topic, String data);
+        void onServiceResponseReceived(String serviceName, String result);
         void onStatusChanged(String status, boolean isRunning);
         void onLog(String logMessage);
+        void onError(String title, String message);
     }
 
     private final Context context;
     private final ROS2DataListener listener;
     private WifiManager.MulticastLock multicastLock;
+    private final ExecutorService serviceThreadPool = Executors.newSingleThreadExecutor();
 
     private ROS2Node ros2Node;
     private ROS2Publisher<Twist> cmdVelPublisher;
     private ROS2Publisher<PoseStamped> goalPublisher;
-    private ROS2Publisher<PoseWithCovarianceStamped> initialPosePublisher; // rviz2 2D Pose Estimate 퍼블리셔
-    private ROS2Publisher<String_> customStringPublisher;
+    private ROS2Publisher<PoseWithCovarianceStamped> initialPosePublisher;
+    private final ConcurrentHashMap<String, ROS2Publisher<String_>> stringPublisherMap = new ConcurrentHashMap<>();
 
     private ROS2Subscription<CompressedImage> imageSubscription;
     private ROS2Subscription<LaserScan> scanSubscription;
@@ -53,23 +61,41 @@ public class ROS2NativeManager {
     private ROS2Subscription<PoseWithCovarianceStamped> amclPoseSubscription;
     private ROS2Subscription<Odometry> odomSubscription;
     private ROS2Subscription<BatteryState> batterySubscription;
+    private ROS2Subscription<String_> rqtGraphSubscription; // [추가] RQT 그래프 전용 구독자
     private ROS2Subscription<?> dynamicSubscription;
 
     private String currentSubTopic = "/chatter";
     private boolean isRunning = false;
     private volatile long lastHeartbeatTime = 0;
 
+    private static final Map<String, String> RESERVED_TOPICS = new HashMap<>();
+    static {
+        RESERVED_TOPICS.put("/scan", "sensor_msgs/msg/LaserScan");
+        RESERVED_TOPICS.put("/cmd_vel", "geometry_msgs/msg/Twist");
+        RESERVED_TOPICS.put("/map", "nav_msgs/msg/OccupancyGrid");
+        RESERVED_TOPICS.put("/odom", "nav_msgs/msg/Odometry");
+        RESERVED_TOPICS.put("/amcl_pose", "geometry_msgs/msg/PoseWithCovarianceStamped");
+        RESERVED_TOPICS.put("/initialpose", "geometry_msgs/msg/PoseWithCovarianceStamped");
+        RESERVED_TOPICS.put("/goal_pose", "geometry_msgs/msg/PoseStamped");
+        RESERVED_TOPICS.put("/battery_state", "sensor_msgs/msg/BatteryState");
+        RESERVED_TOPICS.put("/image_raw/compressed", "sensor_msgs/msg/CompressedImage");
+    }
+
     public ROS2NativeManager(Context context, ROS2DataListener listener) {
         this.context = context;
         this.listener = listener;
     }
 
+    public static boolean isValidRosName(String name) {
+        if (name == null || name.trim().isEmpty()) return false;
+        String trimmed = name.trim();
+        return trimmed.matches("^/[a-zA-Z0-9_/]+$");
+    }
+
     public synchronized void startNode(int domainId, boolean useBestEffortQos) {
-        Log.i(TAG, "startNode 호출됨 - 도메인 ID: " + domainId);
         stopNode();
 
         try {
-            Log.i(TAG, "[DDS] Wi-Fi Multicast Lock 획득 시도 중...");
             WifiManager wifi = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wifi != null) {
                 multicastLock = wifi.createMulticastLock("ros2_dds_multicast_lock");
@@ -78,25 +104,14 @@ public class ROS2NativeManager {
                 log("MulticastLock 획득 완료");
             }
 
-            log("ROS2Node 생성 중...");
             ros2Node = new ROS2Node("android_controller_node", domainId);
-            log("ROS2Node 생성 완료: android_controller_node (Domain: " + domainId + ")");
+            log("ROS2Node 생성 완료 (Domain: " + domainId + ")");
 
-            // 1. /cmd_vel 퍼블리셔
-            ROS2Topic<Twist> cmdVelTopic = new ROS2Topic<>("/cmd_vel", Twist.class);
-            cmdVelPublisher = ros2Node.createPublisher(cmdVelTopic);
+            cmdVelPublisher = ros2Node.createPublisher(new ROS2Topic<>("/cmd_vel", Twist.class));
+            goalPublisher = ros2Node.createPublisher(new ROS2Topic<>("/goal_pose", PoseStamped.class));
+            initialPosePublisher = ros2Node.createPublisher(new ROS2Topic<>("/initialpose", PoseWithCovarianceStamped.class));
 
-            // 2. /goal_pose 퍼블리셔 (Nav2 Goal)
-            ROS2Topic<PoseStamped> goalTopic = new ROS2Topic<>("/goal_pose", PoseStamped.class);
-            goalPublisher = ros2Node.createPublisher(goalTopic);
-
-            // 3. /initialpose 퍼블리셔 (rviz2 2D Pose Estimate)
-            ROS2Topic<PoseWithCovarianceStamped> initPoseTopic = new ROS2Topic<>("/initialpose", PoseWithCovarianceStamped.class);
-            initialPosePublisher = ros2Node.createPublisher(initPoseTopic);
-
-            // 4. /image_raw/compressed 구독자
-            ROS2Topic<CompressedImage> imageTopic = new ROS2Topic<>("/image_raw/compressed", CompressedImage.class);
-            imageSubscription = ros2Node.createSubscription(imageTopic, reader -> {
+            imageSubscription = ros2Node.createSubscription(new ROS2Topic<>("/image_raw/compressed", CompressedImage.class), reader -> {
                 try {
                     CompressedImage msg = reader.read();
                     if (msg != null && msg.getData() != null) {
@@ -110,9 +125,7 @@ public class ROS2NativeManager {
                 } catch (Throwable ignored) {}
             });
 
-            // 5. /scan LiDAR 구독자
-            ROS2Topic<LaserScan> scanTopic = new ROS2Topic<>("/scan", LaserScan.class);
-            scanSubscription = ros2Node.createSubscription(scanTopic, reader -> {
+            scanSubscription = ros2Node.createSubscription(new ROS2Topic<>("/scan", LaserScan.class), reader -> {
                 try {
                     LaserScan scan = reader.read();
                     if (scan != null && scan.getRanges() != null && listener != null) {
@@ -123,9 +136,7 @@ public class ROS2NativeManager {
                 } catch (Throwable ignored) {}
             });
 
-            // 6. /map SLAM 점유격자 지도 구독자
-            ROS2Topic<OccupancyGrid> mapTopic = new ROS2Topic<>("/map", OccupancyGrid.class);
-            mapSubscription = ros2Node.createSubscription(mapTopic, reader -> {
+            mapSubscription = ros2Node.createSubscription(new ROS2Topic<>("/map", OccupancyGrid.class), reader -> {
                 try {
                     OccupancyGrid map = reader.read();
                     if (map != null && map.getData() != null && listener != null) {
@@ -141,9 +152,7 @@ public class ROS2NativeManager {
                 } catch (Throwable ignored) {}
             });
 
-            // 7. /amcl_pose Nav2 위치 추정 구독자
-            ROS2Topic<PoseWithCovarianceStamped> amclTopic = new ROS2Topic<>("/amcl_pose", PoseWithCovarianceStamped.class);
-            amclPoseSubscription = ros2Node.createSubscription(amclTopic, reader -> {
+            amclPoseSubscription = ros2Node.createSubscription(new ROS2Topic<>("/amcl_pose", PoseWithCovarianceStamped.class), reader -> {
                 try {
                     PoseWithCovarianceStamped poseMsg = reader.read();
                     if (poseMsg != null && listener != null) {
@@ -153,42 +162,46 @@ public class ROS2NativeManager {
                         double qz = poseMsg.getPose().getPose().getOrientation().getZ();
                         double qw = poseMsg.getPose().getPose().getOrientation().getW();
                         float yaw = (float) (2.0 * Math.atan2(qz, qw));
-                        listener.onRobotPoseReceived(x, y, yaw);
+                        listener.onRobotPoseReceived(x, y, yaw, true);
                     }
                 } catch (Throwable ignored) {}
             });
 
-            // 8. /odom 오도메트리 구독자
-            ROS2Topic<Odometry> odomTopic = new ROS2Topic<>("/odom", Odometry.class);
-            odomSubscription = ros2Node.createSubscription(odomTopic, reader -> {
+            odomSubscription = ros2Node.createSubscription(new ROS2Topic<>("/odom", Odometry.class), reader -> {
                 try {
                     Odometry odom = reader.read();
                     if (odom != null && listener != null) {
                         updateHeartbeat();
-                        if (amclPoseSubscription == null) {
-                            float x = (float) odom.getPose().getPose().getPosition().getX();
-                            float y = (float) odom.getPose().getPose().getPosition().getY();
-                            double qz = odom.getPose().getPose().getOrientation().getZ();
-                            double qw = odom.getPose().getPose().getOrientation().getW();
-                            float yaw = (float) (2.0 * Math.atan2(qz, qw));
-                            listener.onRobotPoseReceived(x, y, yaw);
-                        }
+                        float x = (float) odom.getPose().getPose().getPosition().getX();
+                        float y = (float) odom.getPose().getPose().getPosition().getY();
+                        double qz = odom.getPose().getPose().getOrientation().getZ();
+                        double qw = odom.getPose().getPose().getOrientation().getW();
+                        float yaw = (float) (2.0 * Math.atan2(qz, qw));
+                        listener.onRobotPoseReceived(x, y, yaw, false);
                     }
                 } catch (Throwable ignored) {}
             });
 
-            // 9. /battery_state 구독자
-            ROS2Topic<BatteryState> batTopic = new ROS2Topic<>("/battery_state", BatteryState.class);
-            batterySubscription = ros2Node.createSubscription(batTopic, reader -> {
+            batterySubscription = ros2Node.createSubscription(new ROS2Topic<>("/battery_state", BatteryState.class), reader -> {
                 try {
                     BatteryState bat = reader.read();
                     if (bat != null && listener != null) {
                         updateHeartbeat();
                         float pct = bat.getPercentage();
                         if (pct <= 1.0f && pct > 0.0f) pct *= 100f;
-                        float volt = bat.getVoltage();
-                        boolean isCharging = (bat.getPowerSupplyStatus() == 1);
-                        listener.onBatteryStateReceived(pct, volt, isCharging);
+                        listener.onBatteryStateReceived(pct, bat.getVoltage(), bat.getPowerSupplyStatus() == 1);
+                    }
+                } catch (Throwable ignored) {}
+            });
+
+            // [핵심 추가] /rqt_graph_data 수신 구독자 등록
+            ROS2Topic<String_> rqtTopic = new ROS2Topic<>("/rqt_graph_data", String_.class);
+            rqtGraphSubscription = ros2Node.createSubscription(rqtTopic, reader -> {
+                try {
+                    String_ msg = reader.read();
+                    if (msg != null && msg.getData() != null && listener != null) {
+                        updateHeartbeat();
+                        listener.onCustomTopicReceived("/rqt_graph_data", msg.getData().toString());
                     }
                 } catch (Throwable ignored) {}
             });
@@ -201,10 +214,11 @@ public class ROS2NativeManager {
                 listener.onStatusChanged("DDS 노드 동작 중 (Domain: " + domainId + ")", true);
             }
 
-        } catch (Exception e) {
-            Log.e(TAG, "노드 시작 중 예외", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "노드 시작 예외", t);
             if (listener != null) {
-                listener.onStatusChanged("노드 생성 오류: " + e.getMessage(), false);
+                listener.onStatusChanged("노드 생성 오류", false);
+                listener.onError("노드 생성 실패", "도메인 ID(" + domainId + ")로 ROS 2 노드를 생성하지 못했습니다.\n\n원인: " + t.getMessage());
             }
         }
     }
@@ -219,7 +233,7 @@ public class ROS2NativeManager {
 
     public synchronized void publishGoalPose(float worldX, float worldY, float yaw) {
         if (!isRunning || goalPublisher == null) {
-            log("[WARN] 노드가 실행 중이 아닙니다.");
+            notifyError("Goal 전송 불가", "ROS 2 노드가 실행 중이 아닙니다. 상단에서 [노드 시작]을 먼저 누르세요.");
             return;
         }
         try {
@@ -228,23 +242,19 @@ public class ROS2NativeManager {
             pose.getPose().getPosition().setX(worldX);
             pose.getPose().getPosition().setY(worldY);
             pose.getPose().getPosition().setZ(0.0);
-
             pose.getPose().getOrientation().setZ((float) Math.sin(yaw / 2.0));
             pose.getPose().getOrientation().setW((float) Math.cos(yaw / 2.0));
 
             goalPublisher.publish(pose);
-            log(String.format(Locale.getDefault(), "[Goal 전송] /goal_pose -> X: %.2f, Y: %.2f, Yaw: %.1f°", worldX, worldY, Math.toDegrees(yaw)));
+            log(String.format(Locale.getDefault(), "[Goal 전송] X: %.2f, Y: %.2f, Yaw: %.1f°", worldX, worldY, Math.toDegrees(yaw)));
         } catch (Throwable t) {
-            log("[ERROR] Goal 전송 오류: " + t.getMessage());
+            notifyError("Goal 전송 오류", t.getMessage());
         }
     }
 
-    /**
-     * [rviz2 2D Pose Estimate] /initialpose 퍼블리시
-     */
     public synchronized void publishInitialPose(float worldX, float worldY, float yaw) {
         if (!isRunning || initialPosePublisher == null) {
-            log("[WARN] 노드가 실행 중이 아닙니다.");
+            notifyError("위치 추정 전송 불가", "ROS 2 노드가 실행 중이 아닙니다.");
             return;
         }
         try {
@@ -253,79 +263,88 @@ public class ROS2NativeManager {
             poseMsg.getPose().getPose().getPosition().setX(worldX);
             poseMsg.getPose().getPose().getPosition().setY(worldY);
             poseMsg.getPose().getPose().getPosition().setZ(0.0);
-
             poseMsg.getPose().getPose().getOrientation().setZ((float) Math.sin(yaw / 2.0));
             poseMsg.getPose().getPose().getOrientation().setW((float) Math.cos(yaw / 2.0));
 
             initialPosePublisher.publish(poseMsg);
-            log(String.format(Locale.getDefault(), "[2D Pose Estimate] /initialpose -> X: %.2f, Y: %.2f, Yaw: %.1f°", worldX, worldY, Math.toDegrees(yaw)));
+
+            if (listener != null) {
+                listener.onRobotPoseReceived(worldX, worldY, yaw, true);
+            }
+
+            log(String.format(Locale.getDefault(), "[2D Pose Estimate] X: %.2f, Y: %.2f, Yaw: %.1f°", worldX, worldY, Math.toDegrees(yaw)));
         } catch (Throwable t) {
-            log("[ERROR] Initial Pose 전송 오류: " + t.getMessage());
+            notifyError("2D Pose Estimate 전송 오류", t.getMessage());
         }
     }
 
     public synchronized void cancelNavigation(float currentRobotX, float currentRobotY, float currentRobotYaw) {
-        publishCmdVel(0f, 0f);
-        publishGoalPose(currentRobotX, currentRobotY, currentRobotYaw);
-        log("[Nav2] 자율주행 취소 명령 전송 완료");
+        try {
+            publishCmdVel(0f, 0f);
+            if (isRunning && goalPublisher != null) {
+                publishGoalPose(currentRobotX, currentRobotY, currentRobotYaw);
+            }
+            log("[Nav2] 자율주행 취소 명령 전송 완료");
+        } catch (Throwable t) {
+            Log.e(TAG, "Nav 취소 예외", t);
+        }
     }
 
     public synchronized void switchSubscribedTopic(String topicName) {
-        this.currentSubTopic = topicName;
+        if (topicName == null || topicName.trim().isEmpty()) return;
+        String trimmed = topicName.trim();
+        if (!trimmed.startsWith("/")) trimmed = "/" + trimmed;
+
+        if (!isValidRosName(trimmed)) {
+            notifyError("잘못된 토픽 이름", "토픽 이름 '" + topicName + "'은 올바른 ROS 형식이 아닙니다.");
+            return;
+        }
+
+        this.currentSubTopic = trimmed;
         if (!isRunning || ros2Node == null) return;
 
-        try {
-            if (topicName.contains("cmd_vel")) {
-                ROS2Topic<Twist> topic = new ROS2Topic<>(topicName, Twist.class);
-                dynamicSubscription = ros2Node.createSubscription(topic, reader -> {
-                    try {
-                        if (!topicName.equals(currentSubTopic)) return;
+        dynamicSubscription = null;
 
+        try {
+            final String finalTopic = trimmed;
+            if (trimmed.contains("cmd_vel")) {
+                dynamicSubscription = ros2Node.createSubscription(new ROS2Topic<>(trimmed, Twist.class), reader -> {
+                    try {
+                        if (!finalTopic.equals(currentSubTopic)) return;
                         Twist msg = reader.read();
                         if (msg != null && listener != null) {
                             updateHeartbeat();
-                            String formatted = String.format(
-                                    Locale.getDefault(),
-                                    "Linear [x: %.2f, y: %.2f, z: %.2f], Angular [z: %.2f]",
-                                    msg.getLinear().getX(), msg.getLinear().getY(), msg.getLinear().getZ(),
-                                    msg.getAngular().getZ()
-                            );
-                            listener.onCustomTopicReceived(topicName, formatted);
+                            String formatted = String.format(Locale.getDefault(), "Linear [x: %.2f], Angular [z: %.2f]", msg.getLinear().getX(), msg.getAngular().getZ());
+                            listener.onCustomTopicReceived(finalTopic, formatted);
                         }
                     } catch (Throwable ignored) {}
                 });
-            } else if (topicName.contains("scan")) {
-                ROS2Topic<LaserScan> topic = new ROS2Topic<>(topicName, LaserScan.class);
-                dynamicSubscription = ros2Node.createSubscription(topic, reader -> {
+            } else if (trimmed.contains("scan")) {
+                dynamicSubscription = ros2Node.createSubscription(new ROS2Topic<>(trimmed, LaserScan.class), reader -> {
                     try {
-                        if (!topicName.equals(currentSubTopic)) return;
-
+                        if (!finalTopic.equals(currentSubTopic)) return;
                         LaserScan msg = reader.read();
                         if (msg != null && msg.getRanges() != null && listener != null) {
                             updateHeartbeat();
-                            int count = msg.getRanges().getBuffer().array().length;
-                            String formatted = String.format(Locale.getDefault(), "포인트: %d개, 범위: [%.2f ~ %.2f]", count, msg.getAngleMin(), msg.getAngleMax());
-                            listener.onCustomTopicReceived(topicName, formatted);
+                            listener.onCustomTopicReceived(finalTopic, "LiDAR 포인트: " + msg.getRanges().getBuffer().array().length + "개");
                         }
                     } catch (Throwable ignored) {}
                 });
             } else {
-                ROS2Topic<String_> topic = new ROS2Topic<>(topicName, String_.class);
-                dynamicSubscription = ros2Node.createSubscription(topic, reader -> {
+                dynamicSubscription = ros2Node.createSubscription(new ROS2Topic<>(trimmed, String_.class), reader -> {
                     try {
-                        if (!topicName.equals(currentSubTopic)) return;
-
+                        if (!finalTopic.equals(currentSubTopic)) return;
                         String_ msg = reader.read();
                         if (msg != null && msg.getData() != null && listener != null) {
                             updateHeartbeat();
-                            listener.onCustomTopicReceived(topicName, msg.getData().toString());
+                            listener.onCustomTopicReceived(finalTopic, msg.getData().toString());
                         }
                     } catch (Throwable ignored) {}
                 });
             }
-            log("[Echo Topic 설정]: " + topicName);
-        } catch (Throwable e) {
-            log("[ERROR] 토픽 전환 실패: " + e.getMessage());
+            log("[Echo Topic 설정]: " + trimmed);
+        } catch (Throwable t) {
+            notifyError("토픽 구독 실패", "토픽 '" + trimmed + "'을 구독할 수 없습니다.\n\n원인: " + t.getMessage());
         }
     }
 
@@ -336,46 +355,74 @@ public class ROS2NativeManager {
             twist.getLinear().setX(linearX);
             twist.getAngular().setZ(angularZ);
             cmdVelPublisher.publish(twist);
-        } catch (Exception e) {
-            Log.e(TAG, "cmd_vel 발행 중 예외", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "cmd_vel 발행 예외", t);
         }
     }
 
     public synchronized void publishStringTopic(String topicName, String text) {
         if (!isRunning || ros2Node == null) {
-            log("[WARN] 노드가 실행 중이 아닙니다.");
+            notifyError("토픽 발행 불가", "ROS 2 노드가 중지되어 있습니다. 상단에서 [노드 시작]을 먼저 누르세요.");
             return;
         }
+
+        if (topicName == null || topicName.trim().isEmpty()) {
+            notifyError("토픽명 누락", "발행할 토픽 이름을 입력하세요.");
+            return;
+        }
+
+        String validTopic = topicName.trim();
+        if (!validTopic.startsWith("/")) validTopic = "/" + validTopic;
+
+        if (!isValidRosName(validTopic)) {
+            notifyError("잘못된 토픽 형식", "토픽명 '" + topicName + "'은 올바른 ROS 형식이 아닙니다.");
+            return;
+        }
+
+        if (RESERVED_TOPICS.containsKey(validTopic)) {
+            String requiredType = RESERVED_TOPICS.get(validTopic);
+            notifyError("토픽 타입 불일치", "'" + validTopic + "' 토픽은 [" + requiredType + "] 전용 시스템 토픽입니다.");
+            return;
+        }
+
         try {
-            ROS2Topic<String_> topic = new ROS2Topic<>(topicName, String_.class);
-            if (customStringPublisher == null) {
-                customStringPublisher = ros2Node.createPublisher(topic);
+            ROS2Publisher<String_> publisher = stringPublisherMap.get(validTopic);
+            if (publisher == null) {
+                ROS2Topic<String_> topic = new ROS2Topic<>(validTopic, String_.class);
+                publisher = ros2Node.createPublisher(topic);
+                stringPublisherMap.put(validTopic, publisher);
             }
+
             String_ msg = new String_();
-            msg.setData(text);
-            customStringPublisher.publish(msg);
-            log("[Pub " + topicName + "]: " + text);
-        } catch (Exception e) {
-            log("[ERROR] 토픽 발행 실패: " + e.getMessage());
+            msg.setData(text == null ? "" : text);
+            publisher.publish(msg);
+            log("[Pub " + validTopic + "]: " + text);
+        } catch (Throwable t) {
+            notifyError("토픽 발행 오류", "토픽 [" + validTopic + "] 발행 오류: " + t.getMessage());
         }
     }
 
     public synchronized void stopNode() {
         log("stopNode 호출됨");
         isRunning = false;
+        stringPublisherMap.clear();
+        dynamicSubscription = null;
+        rqtGraphSubscription = null;
+
         if (ros2Node != null) {
             try {
                 ros2Node.close();
                 log("ROS2Node 종료 완료");
-            } catch (Exception e) {
-                Log.e(TAG, "ROS2Node 종료 중 오류", e);
+            } catch (Throwable t) {
+                Log.e(TAG, "ROS2Node 종료 오류", t);
             }
             ros2Node = null;
         }
         if (multicastLock != null && multicastLock.isHeld()) {
-            multicastLock.release();
+            try {
+                multicastLock.release();
+            } catch (Throwable ignored) {}
             multicastLock = null;
-            log("MulticastLock 해제 완료");
         }
         if (listener != null) {
             listener.onStatusChanged("상태: 노드 중지됨", false);
@@ -383,12 +430,17 @@ public class ROS2NativeManager {
     }
 
     private void log(String message) {
-        if (listener != null) {
-            listener.onLog(message);
-        }
+        if (listener != null) listener.onLog(message);
     }
 
     public boolean isRunning() {
         return isRunning;
+    }
+
+    private void notifyError(String title, String message) {
+        log("[ERROR] " + title + ": " + message);
+        if (listener != null) {
+            listener.onError(title, message);
+        }
     }
 }

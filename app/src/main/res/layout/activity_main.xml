@@ -10,7 +10,7 @@
     android:background="#121212"
     tools:context=".MainActivity">
 
-    <!-- 상단 탭 레이아웃 (5개 탭) -->
+    <!-- 상단 탭 레이아웃 (총 7개 독립 탭) -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"
@@ -27,7 +27,11 @@
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🗺️ SLAM 맵" />
+            android:text="🗺️ SLAM 맵핑" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🧭 Nav2 자율주행" />
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -35,66 +39,102 @@
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⚡ 서비스" />
+            android:text="⚙️ 파라미터" />
         <com.google.android.material.tabs.TabItem
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⚙️ 로그" />
+            android:text="📊 RQT 그래프" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📜 콘솔 로그" />
     </com.google.android.material.tabs.TabLayout>
 
-    <!-- 공통 상단 상태 바 -->
+    <!-- 공통 상단 상태 바 (2줄 구조) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
+        android:orientation="vertical"
         android:background="#181818"
-        android:gravity="center_vertical">
+        android:padding="6dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Domain: "
-            android:textColor="#FFF"
-            android:textSize="12sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <EditText
-            android:id="@+id/etDomainId"
-            android:layout_width="45dp"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Domain: "
+                android:textColor="#FFF"
+                android:textSize="11sp" />
+
+            <EditText
+                android:id="@+id/etDomainId"
+                android:layout_width="36dp"
+                android:layout_height="wrap_content"
+                android:text="15"
+                android:textColor="#FFF"
+                android:inputType="number"
+                android:textSize="11sp"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="QoS: "
+                android:textColor="#AAA"
+                android:textSize="11sp"
+                android:layout_marginStart="4dp" />
+
+            <Spinner
+                android:id="@+id/spnGlobalQos"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="#00E676"
+                android:theme="@style/ThemeOverlay.AppCompat.Dark" />
+
+            <Button
+                android:id="@+id/btnNodeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="노드 시작"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:backgroundTint="#4CAF50"
+                android:layout_marginStart="6dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="0"
-            android:textColor="#FFF"
-            android:inputType="number"
-            android:textSize="12sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
 
-        <TextView
-            android:id="@+id/tvBatteryBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🔋 --% (--V)"
-            android:textColor="#00E676"
-            android:textSize="11sp"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp"
-            android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tvBatteryBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔋 --% (--V)"
+                android:textColor="#00E676"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="● 중지됨"
-            android:textColor="#FF5252"
-            android:textSize="11sp"
-            android:gravity="center" />
-
-        <Button
-            android:id="@+id/btnNodeToggle"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="노드 시작"
-            android:textSize="11sp"
-            android:backgroundTint="#4CAF50" />
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="● 중지됨"
+                android:textColor="#FF5252"
+                android:textSize="11sp"
+                android:gravity="end"
+                android:paddingEnd="4dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
@@ -218,16 +258,76 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- ==================== TAB 2: 2D SLAM 맵 & 2D Pose / Nav2 제어 ==================== -->
+        <!-- ==================== TAB 2: 🗺️ SLAM 맵핑 전용 탭 ==================== -->
         <LinearLayout
-            android:id="@+id/tabMapNav"
+            android:id="@+id/tabSlamMapping"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:padding="6dp"
             android:visibility="gone">
 
-            <!-- 1. 모드 선택 바 (단일 목표 / 경유지 순찰 / 2D 위치추정 / 취소) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#1E1E1E"
+                android:padding="6dp"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🗺️ SLAM 실시간 맵 확장 &amp; 조이스틱 주행"
+                    android:textColor="#00E676"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnSaveMapFromSlam"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="💾 PC에 맵 저장"
+                    android:textSize="10sp"
+                    android:backgroundTint="#FF9800"
+                    android:textColor="#000"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#181818">
+
+                <com.example.ros2_controller.MapView
+                    android:id="@+id/mapViewSlam"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <!-- SLAM 전용 조이스틱 (우하단 배치) -->
+                <com.example.ros2_controller.JoystickView
+                    android:id="@+id/mapJoystickView"
+                    android:layout_width="145dp"
+                    android:layout_height="145dp"
+                    android:layout_gravity="bottom|end"
+                    android:layout_margin="12dp"
+                    android:alpha="0.85" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- ==================== TAB 3: 🧭 Nav2 자율주행 전용 탭 ==================== -->
+        <LinearLayout
+            android:id="@+id/tabNav2Drive"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <!-- 내비게이션 모드 선택 바 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -282,7 +382,6 @@
                     android:layout_marginStart="1dp" />
             </LinearLayout>
 
-            <!-- 2. 상태 정보 & 전송/초기화 바 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -302,7 +401,7 @@
                     android:textSize="11sp" />
 
                 <Button
-                    android:id="@+id/btnClearMapWaypoints"
+                    android:id="@+id/btnClearMapMarkers"
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
                     android:text="초기화"
@@ -328,13 +427,13 @@
                 android:background="#181818">
 
                 <com.example.ros2_controller.MapView
-                    android:id="@+id/mapView"
+                    android:id="@+id/mapViewNav2"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
             </FrameLayout>
         </LinearLayout>
 
-        <!-- ==================== TAB 3: 토픽 송수신 ==================== -->
+        <!-- ==================== TAB 4: 토픽 송수신 (/chatter) ==================== -->
         <LinearLayout
             android:id="@+id/tabTopics"
             android:layout_width="match_parent"
@@ -346,7 +445,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📤 토픽 퍼블리시 (Publish)"
+                android:text="📤 테스트 토픽 퍼블리시 (/chatter)"
                 android:textColor="#00E676"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -355,58 +454,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginTop="2dp">
+                android:layout_marginTop="6dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="목록: "
-                    android:textColor="#AAA"
-                    android:textSize="11sp" />
-
-                <Spinner
-                    android:id="@+id/spnPubTopics"
+                <EditText
+                    android:id="@+id/etChatterMsg"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:backgroundTint="#00E676"
-                    android:theme="@style/ThemeOverlay.AppCompat.Dark" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="2dp">
-
-                <EditText
-                    android:id="@+id/etCustomTopicName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1.2"
-                    android:hint="토픽명 입력"
-                    android:text="/chatter"
-                    android:textColor="#FFF"
-                    android:textColorHint="#777"
-                    android:textSize="12sp" />
-
-                <EditText
-                    android:id="@+id/etCustomTopicMsg"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1.8"
-                    android:hint="보낼 문자열"
-                    android:text="Hello from Android!"
+                    android:hint="보낼 문자열 입력"
+                    android:text="Hello from Android ROS2!"
                     android:textColor="#FFF"
                     android:textColorHint="#777"
                     android:textSize="12sp" />
 
                 <Button
-                    android:id="@+id/btnPublishCustomTopic"
+                    android:id="@+id/btnPublishChatter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="전송"
+                    android:text="chatter 전송"
                     android:textSize="11sp"
                     android:backgroundTint="#2196F3" />
             </LinearLayout>
@@ -416,13 +481,13 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginTop="10dp">
+                android:layout_marginTop="16dp">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="📥 수신 모니터링 (최근 20개)"
+                    android:text="📥 수신 모니터링 (Subscribe Echo)"
                     android:textColor="#00E676"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -487,19 +552,19 @@
             </ScrollView>
         </LinearLayout>
 
-        <!-- ==================== TAB 4: 서비스 & 액션 ==================== -->
+        <!-- ==================== TAB 5: 파라미터 튜닝 ==================== -->
         <LinearLayout
             android:id="@+id/tabServices"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:padding="12dp"
+            android:padding="10dp"
             android:visibility="gone">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="서비스 호출 (Service Call)"
+                android:text="⚙️ 파라미터 실시간 튜닝 (/param_set_cmd)"
                 android:textColor="#00E676"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -508,83 +573,189 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginTop="4dp">
 
-                <EditText
-                    android:id="@+id/etServiceName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="서비스 이름 (예: /reset)"
-                    android:text="/reset"
-                    android:textColor="#FFF"
-                    android:textColorHint="#777"
-                    android:textSize="12sp" />
-
-                <Button
-                    android:id="@+id/btnCallService"
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="서비스 호출"
-                    android:textSize="11sp"
-                    android:backgroundTint="#FF9800" />
-            </LinearLayout>
+                    android:text="노드: "
+                    android:textColor="#AAA"
+                    android:textSize="11sp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="퀵 커맨드 (Quick Commands)"
-                android:textColor="#AAA"
-                android:textSize="11sp"
-                android:layout_marginTop="12dp" />
+                <Spinner
+                    android:id="@+id/spnParamNodes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="#00E676"
+                    android:theme="@style/ThemeOverlay.AppCompat.Dark" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="파라미터: "
+                    android:textColor="#AAA"
+                    android:textSize="11sp" />
+
+                <Spinner
+                    android:id="@+id/spnParams"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:backgroundTint="#00E676"
+                    android:theme="@style/ThemeOverlay.AppCompat.Dark" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:layout_marginTop="4dp">
 
-                <Button
-                    android:id="@+id/btnQuickResetOdom"
+                <EditText
+                    android:id="@+id/etParamValue"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Odom Reset"
+                    android:hint="변경할 값"
+                    android:textColor="#FFF"
+                    android:textColorHint="#777"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnSetParam"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="값 변경 (Set &amp; Send)"
                     android:textSize="11sp"
-                    android:backgroundTint="#424242"
+                    android:backgroundTint="#00E676"
+                    android:textColor="#000"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#1E1E1E"
+                android:padding="6dp"
+                android:layout_marginTop="6dp">
+
+                <EditText
+                    android:id="@+id/etPresetFileName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="프리셋 파일명"
+                    android:text="nav2_custom_preset"
+                    android:textColor="#FFF"
+                    android:textColorHint="#777"
+                    android:textSize="11sp" />
+
+                <Button
+                    android:id="@+id/btnSaveParamsPreset"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="💾 프리셋 저장"
+                    android:textSize="10sp"
+                    android:backgroundTint="#FF9800"
                     android:layout_marginEnd="4dp" />
 
                 <Button
-                    android:id="@+id/btnQuickClearCostmap"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Clear Costmap"
-                    android:textSize="11sp"
-                    android:backgroundTint="#424242"
-                    android:layout_marginStart="4dp" />
+                    android:id="@+id/btnLoadParamsPreset"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="📂 불러오기"
+                    android:textSize="10sp"
+                    android:backgroundTint="#2196F3" />
             </LinearLayout>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋 실시간 파라미터 전송 로그"
+                android:textColor="#AAA"
+                android:textSize="11sp"
+                android:layout_marginTop="8dp" />
+
             <ScrollView
+                android:id="@+id/svParamLog"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="#1E1E1E"
-                android:layout_marginTop="8dp"
-                android:padding="8dp">
+                android:background="#181818"
+                android:padding="6dp"
+                android:layout_marginTop="2dp">
 
                 <TextView
-                    android:id="@+id/tvServiceResult"
+                    android:id="@+id/tvParamLog"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#FFF"
+                    android:textColor="#81C784"
                     android:textSize="11sp"
                     android:fontFamily="monospace"
-                    android:text="서비스 응답 결과가 여기에 표시됩니다." />
+                    android:text="[파라미터 변경 대기 중...]\n" />
             </ScrollView>
         </LinearLayout>
 
-        <!-- ==================== TAB 5: DDS 콘솔 로그 ==================== -->
+        <!-- ==================== TAB 6: 📊 RQT 그래프 시각화 ==================== -->
+        <LinearLayout
+            android:id="@+id/tabRqtGraph"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#1E1E1E"
+                android:padding="6dp"
+                android:layout_marginBottom="4dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="📊 ROS 2 노드 &amp; 토픽 관계도 (RQT Graph)"
+                    android:textColor="#00E676"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnRefreshRqtGraph"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="🔄 새로고침"
+                    android:textSize="10sp"
+                    android:backgroundTint="#2196F3" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#0F0F0F">
+
+                <com.example.ros2_controller.RqtGraphView
+                    android:id="@+id/rqtGraphView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- ==================== TAB 7: DDS 콘솔 로그 ==================== -->
         <LinearLayout
             android:id="@+id/tabLogs"
             android:layout_width="match_parent"
